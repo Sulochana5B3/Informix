@@ -1,0 +1,31 @@
+The database server uses shared locks to support different levels of isolation among processes attempting to access data.
+
+SET ISOLATION provides the same functionality as the ISO/ANSI-compliant SET TRANSACTION statement for isolation levels of DIRTY READ (called UNCOMMITTED in SET TRANSACTION), COMMITTED READ, and REPEATABLE READ (called SERIALIZABLE in SET TRANSACTION).
+
+The database isolation_level affects read concurrency when rows are retrieved from the database. The isolation level specifies the phenomena that can occur during execution of concurrent SQL transactions. The following phenomena are possible:
+
+Dirty Read:
+----------- 
+	SQL transaction T1 modifies a row. SQL transaction T2 then reads that row before T1 performs a COMMIT. If T1 then performs a ROLLBACK, T2 will have read a row that was never committed, and therefore can be considered never to have existed.
+
+Non-Repeatable Read:
+-------------------- 
+	SQL transaction T1 reads a row. SQL transaction T2 then modifies or deletes that row and performs a COMMIT. If T1 then attempts to reread that row, T1 might receive the modified value or discover that the row has been deleted.
+
+Phantom Row:
+------------
+	 SQL transaction T1 reads the set of rows N that satisfy some search condition. SQL transaction T2 then executes SQL statements that generate one or more new rows that satisfy the search condition used by SQL transaction T1. If T1 then repeats the original read with the same search condition, T1 receives a different set of rows.
+
+Default Isolation Levels:
+-------------------------
+Isolation Level
+
+Database Type
+
+1. Dirty Read
+	Default level in a database without logging
+2. Committed Read
+	Default level in a logged database that is not ANSI compliant
+3. Repeatable Read
+	Default level in an ANSI-compliant database
+

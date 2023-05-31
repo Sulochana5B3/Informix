@@ -1,0 +1,594 @@
+Notes :
+=========
+dbexport location :  /tmp/informix/REORG
+Use ss to check what instance is currently set .
+
+Juergen : 01703227610
+Shiva Kumar Banoth : 9948821892
+
+Available space for reorg saftey backup on adevas3s and adeoas01s
+====================================================================
+
+adevas6s
+============================
+$ hostname
+adevas6s
+$ pwd
+/user
+adbm@adevas6s:/user> df -kh .
+Filesystem             size   used  avail capacity  Mounted on
+rpool/users             33G    20G    13G    62%    /user
+
+$
+
+Keep the backup at this location
+---------------------------------------------
+$ pwd
+/user/informix/REORG_BACKUP_14072019  -------------- 
+$
+
+
+adeoas01s
+============================
+adbm@adeoas01s:/home/adbm> hostname
+adeoas01s
+adbm@adeoas01s:/home/adbm> pwd
+/home/adbm
+adbm@adeoas01s:/home/adbm> df -kh .
+Filesystem            Size  Used Avail Use% Mounted on
+/dev/md/dsk/d107       20G  8.9G   11G  46% /export/home/adbm
+adbm@adeoas01s:/home/adbm>
+
+
+dakota3
+============================
+adbm@dakota3:/adbm/dumps/INFORMIX> df -kh .
+Filesystem            Size  Used Avail Use% Mounted on
+10.132.37.16:/vfde/tq4/db_dumps
+                      1.8T  1.5T  351G  81% /adbm/dumps
+
+adbm@dakota3:/adbm/dumps/INFORMIX> ls -ltr
+total 20
+-rw-r--r-- 1 adbm adbm    0 Jul 12  2019 abc.t
+drwxrwxr-x 9 adbm adbm 4096 Jul 19  2020 rataktp1_vm
+drwxrwxr-x 4 adbm adbm 4096 Jul 19  2020 rataktp4_vm
+drwxrwxr-x 6 adbm adbm 4096 Jul 19  2020 rataktp2_vm
+drwxrwxr-x 6 adbm adbm 4096 Jul 19  2020 ratcalp2_vm_old
+drwxrwxr-x 6 adbm adbm 4096 Jul 19  2020 ratcalp2_vm
+
+adbm@dakota3:/adbm/dumps/INFORMIX>
+
+
+
+
+===================================================================================================================================================
+
+Prepair for Reorg
+=====================
+
+Timings allowed for Reorg :
+----------------------------------
+for weekdays 
+===============
+08:30 PM CET buisness ends ========> Start activity.
+next day 08:00 AM CET buisness start =====> End activity.
+
+for Weekends  
+===============
+On Sunday : 05:00 AM CET Start   => 08:30 IST
+On Sunday : 01:00 PM CET End  => 16:30 IST 
+
+####################################################################################################################################################
+Timings :
+
+Date of Reorg : 27th June,2021
+Timing : 03:00 AM CEST to 12:00 PM CEST
+RFC :  RFC-0638845
+####################################################################################################################################################
+
+Few days before reorg activity 
+=================================
+3 weeks before activity Create an RFC ======> RFC-0638845
+
+
+Application Team will do below things.
+========================================
+- Write one mail to announce the outage .   
+Prepare steps that should be done earlier before the reorg day.
+-             Create job request for stopping the CSM 60 daemons (Example: Z_JRT00049945A)
+-             Create job request for starting the CSM 60 daemons (Example: Z_JRT00049946A)
+
+
+Gathering Data 
+======================
+informix@adetrmas:/opt/informix/reorg/scripts/scripts> ./generate_schema_files.sh
+
+After this execute below script to Get Initial extent Next extent.
+===================================================================
+
+Follow these setps to generate the data
+-----------------------------------------
+informix@adetrmas:/opt/informix/reorg/scripts/scripts> ./get_sizes_for_Tables_main.sh
+WORKDIR=/opt/informix/reorg/scripts
+cat $WORKDIR/files/get_sizes_for_Tables.txt
+Do text to column in seperate sheet and
+Copy paste the data to this excel before the reorg.
+
+
+
+===================================================================================================================================================
+
+Steps for Informix Reorg
+=========================
+
+1) Ask the application team to stop all the applications and monitoring from application side .
+====================================================================================================
+Someone from Application team should be available.
+--------------------------------------------------
+
+Drop mail to  : DL-DE TISF_ePos_Support [ZV] - MXL TISF-ePos-Support-ZV.de@vodafone.com
+
+-             Forward service request for stopping the daemons to PMC/SMC and call the colleagues
+-             As user epos: Disable epos monitoring on all depop[x]ls to prevent hundreds of error messages and incident generation (touch /tmp/procmon2_epos_off)
+-             As user tramo: Disable VAS on all Tramo application servers (in directory /opt/tramo/d2as/bin: rm d2as_prod.exe)
+-             As user tramo: stop tramo monitor, otherwise it would lead to prio1 or prio 2 incident (pid=`ps –ef| grep lomonit| nawk ‘{ print $1 }’; kill $pid)
+-             As user tramo: stop statusmonitor (pid=`ps –ef| grep statusmonit| nawk ‘{ print $1 }’; kill $pid)
+-             As user tramo: Stop erni on adevas3s (in directory /opt/tramo/ernid/bin: ./ernid-rataktp1_vm.sh stop;  ./ernid-rataktp2_vm.sh stop; ./ ernid-ratcalp2_vm.sh stop;                        ./ernid-ratcalp2_vm_import.sh stop)
+-             As user tramo: stop bert on adevas3s (in directory /opt/tramo/bertd/bin: ./ bert-rataktp1_vm.sh stop;  ./ bert-rataktp2_vm.sh stop;  ./ bert-ratcalp2_vm.sh stop)
+-             Check if all activate daemons are down
+
+Deactivate all crontab jobs for user tramo on adetrmas
+
+
+2) Put all four Informix Instances in Administrative mode .
+===================================================
+
+
+Switch to each instance .
+--------------------------
+
+onstat -u  - also Verify the connections to the database , there should not be any connections to Informix instances .
+If in above command if we find any user connection get the session id and kill the session using below command.
+
+onstat -g ses sessionID
+onmode -z session ID to kill the session in case required .
+onmode -j  - Only infomrmix user will be able to connect the database .
+
+If any remaining sessions then take snaps and data .
+
+                             
+3) DBA team to stop monitoring from Database side .
+===================================================
+
+cd /opt/informix/ifxmonitor/scripts
+informix@adetrmas:/opt/informix/ifxmonitor/scripts> vi config_ifxmonitor.sh
+
+#SET this VALUE is Y, to exit at anytime
+DO_YOU_WANT_TO_EXIT=N
+
+Value after change
+---------------------
+#SET this VALUE is Y, to exit at anytime
+DO_YOU_WANT_TO_EXIT=Y
+
+
+
+
+Record the logging mode for the database 
+-----------------------------------------
+informix@adetrmas:/opt/informix/reorg/scripts/scripts> ./check_logging_mode.sh > logging_before.txt
+
+
+
+4) Take full backup of all the 4 Informix instances.
+========================================================================================================
+
+Switch to each instance before taking backup ( do it one by one )
+--------------------------------------------------------------------
+
+onbar -b -L 0           ==============> do this rataktp1_vm_vm
+onbar -b -L 0                                   ==============> do this rataktp2_vm_vm
+onbar -b -L 0                                   ==============> do this rataktp4_vm_vm
+onbar -b -L 0                                   ==============> do this ratcalp2_vm_vm
+
+
+6) Get the Count of records in each database for each table.
+========================================================================================================
+
+informix@adetrmas:/opt/informix/reorg/scripts/scripts> ./verify_table_record.sh
+
+Rename the file to table_record_count_before_reorg.txt
+--------------------------------------------------------
+mv table_record_count.txt table_record_count_before_reorg.txt
+
+              
+
+8) Take an export of the data for reorg .
+==============================================================
+All dbexport : dbexport -d <database_name> -ss 
+
+dbexport -d active_imp -ss 
+
+Do all the export one by one .  Verify the end of dbexport.out .  == > "dbexport completed" 
+
+
+rataktp1_vm - arsoc , erwerb , misc , subvent , subventmulti , tochgreq , tochgval
+rataktp2_vm - aktiv , aktiv_imp , port_aktiv , tausch , wechsel
+rataktp4_vm - benutzer , rueckmeldung
+ratcalp2_vm - debitchg , port_reg , reg , reg_imp
+
+
+
+============== rataktp1_vm ==============  rataktp1_vm - arsoc , erwerb , misc , subvent , subventmulti , tochgreq , tochgval
+
+Switch to rataktp1_vm 
+========================
+
+cd /tmp/informix/REORG/rataktp1_vm/arsoc
+dbexport -d arsoc -ss
+Verify dbexport.out file for "dbexport completed"
+
+cd /tmp/informix/REORG/rataktp1_vm/erwerb
+dbexport -d erwerb -ss
+Verify dbexport.out file for "dbexport completed"
+
+cd /tmp/informix/REORG/rataktp1_vm/misc
+dbexport -d misc -ss
+Verify dbexport.out file for "dbexport completed"
+
+cd /tmp/informix/REORG/rataktp1_vm/subvent
+dbexport -d subvent -ss
+Verify dbexport.out file for "dbexport completed"
+
+cd /tmp/informix/REORG/rataktp1_vm/subventmulti
+dbexport -d subventmulti -ss
+Verify dbexport.out file for "dbexport completed"
+
+cd /tmp/informix/REORG/rataktp1_vm/tochgreq
+dbexport -d tochgreq -ss
+Verify dbexport.out file for "dbexport completed"
+
+
+cd /tmp/informix/REORG/rataktp1_vm/tochgval
+dbexport -d tochgval -ss 
+Verify dbexport.out file for "dbexport completed"
+
+
+**Note **** Scp all the dumps to dakota3
+informix@adetrmas:/tmp/informix/REORG> scp -r rataktp1_vm/* adbm@dakota3:/adbm/dumps/INFORMIX/rataktp1_vm
+
+
+
+============== rataktp2_vm ==============  rataktp2_vm - aktiv , aktiv_imp , port_aktiv , tausch , wechsel
+
+switch to rataktp2_vm 
+========================
+
+cd /tmp/informix/REORG/rataktp2_vm/aktiv
+dbexport -d aktiv -ss
+Verify dbexport.out file for "dbexport completed"
+
+cd /tmp/informix/REORG/rataktp2_vm/port_aktiv
+dbexport -d port_aktiv -ss
+Verify dbexport.out file for "dbexport completed"
+
+cd /tmp/informix/REORG/rataktp2_vm/tausch
+dbexport -d tausch -ss
+Verify dbexport.out file for "dbexport completed"
+
+cd /tmp/informix/REORG/rataktp2_vm/wechsel
+dbexport -d wechsel -ss
+Verify dbexport.out file for "dbexport completed"
+
+cd /tmp/informix/REORG/rataktp2_vm/aktiv_imp
+dbexport -d aktiv_imp -ss
+Verify dbexport.out file for "dbexport completed"
+
+
+**Note **** Scp all the dumps to dakota
+informix@adetrmas:/tmp/informix/REORG> scp -r rataktp2_vm/* adbm@dakota1:/adbm/dumps/INFORMIX/rataktp2_vm
+
+============== rataktp4_vm ============== rataktp4_vm : benutzer , rueckmeldung 
+
+cd /tmp/informix/REORG/rataktp4_vm/benutzer
+dbexport -d benutzer -ss
+Verify dbexport.out file for "dbexport completed"
+
+cd /tmp/informix/REORG/rataktp4_vm/rueckmeldung
+dbexport -d rueckmeldung -ss
+Verify dbexport.out file for "dbexport completed"
+
+
+**Note **** Scp all the dumps to dakota
+informix@adetrmas:/tmp/informix/REORG> scp -r rataktp4_vm/* adbm@dakota1:/adbm/dumps/INFORMIX/rataktp4_vm
+
+
+============== ratcalp2_vm ==============  ratcalp2_vm : debitchg , port_reg , reg , reg_imp 
+
+cd /tmp/informix/REORG/ratcalp2_vm/debitchg
+dbexport -d  debitchg -ss
+Verify dbexport.out file for "dbexport completed"
+
+cd /tmp/informix/REORG/ratcalp2_vm/port_reg
+dbexport -d  port_reg -ss
+Verify dbexport.out file for "dbexport completed"
+
+cd /tmp/informix/REORG/ratcalp2_vm/reg
+dbexport -d  reg -ss
+Verify dbexport.out file for "dbexport completed"
+
+cd /tmp/informix/REORG/ratcalp2_vm/reg_imp
+dbexport -d  reg_imp -ss
+Verify dbexport.out file for "dbexport completed"
+
+
+**Note **** Scp all the dumps to dakota
+informix@adetrmas:/tmp/informix/REORG> scp -r ratcalp2_vm/* adbm@dakota1:/adbm/dumps/INFORMIX/ratcalp2_vm
+
+
+
+
+
+
+9) Drop complete database.
+
+============== rataktp1_vm ============== 
+
+login to rataktp1_vm dbaccess and switch to sysmaster database .
+
+drop database arsoc
+drop database erwerb
+drop database misc
+drop database subvent
+drop database subventmulti
+drop database tochgreq
+drop database tochgval
+
+
+This should be done during the reorg activity after the export is taken .
+
+============== rataktp2_vm ============== 
+
+login to rataktp2_vm  dbaccess and switch to sysmaster database .
+
+drop database aktiv
+drop database port_aktiv
+drop database tausch
+drop database wechsel
+drop database aktiv_imp
+
+
+This should be done during the reorg activity after the export is taken .
+
+============== rataktp4_vm ============== 
+
+login to rataktp4_vm dbaccess and switch to sysmaster database .
+
+drop database benutzer
+drop database rueckmeldung
+
+
+This should be done during the reorg activity after the export is taken .
+
+============== ratcalp2_vm ============== 
+
+login to ratcalp2_vm dbaccess and switch to sysmaster database .
+
+drop database debitchg
+drop database port_reg
+drop database reg
+drop database reg_imp
+
+
+This should be done during the reorg activity after the export is taken .
+
+
+12) Import the data .
+==============================================================
+This option created the database as well .
+
+
+dbimport database -d dbspace           ==================> You will have to specify the dbspace here .
+you have to run this command from the same location where the dbexport was done
+
+============== rataktp1_vm ============== 
+
+cd /tmp/informix/REORG/rataktp1_vm/erwerb 
+dbimport erwerb -d datadbs1
+
+cd /tmp/informix/REORG/rataktp1_vm/subvent  
+dbimport subvent -d datadbs1
+
+cd /tmp/informix/REORG/rataktp1_vm/subventmulti 
+dbimport subventmulti -d datadbs1
+
+cd /tmp/informix/REORG/rataktp1_vm/tochgreq 
+dbimport tochgreq -d datadbs2
+
+cd /tmp/informix/REORG/rataktp1_vm/arsoc
+dbimport arsoc -d datadbs2
+
+cd /tmp/informix/REORG/rataktp1_vm/misc
+dbimport misc -d datadbs2
+
+cd /tmp/informix/REORG/rataktp1_vm/tochgval
+dbimport tochgval -d datadbs2
+
+
+Verify the end of dbimport.out .  == > "dbimport completed" 
+
+============== rataktp2_vm ============== 
+
+cd /tmp/informix/REORG/rataktp2_vm/aktiv 
+dbimport aktiv -d datadbs1
+
+cd /tmp/informix/REORG/rataktp2_vm/wechsel
+dbimport wechsel -d datadbs2
+
+cd /tmp/informix/REORG/rataktp2_vm/tausc
+dbimport tausch -d datadbs2
+
+cd /tmp/informix/REORG/rataktp2_vm/port_aktiv
+dbimport port_aktiv -d datadbs2
+
+cd /tmp/informix/REORG/rataktp2_vm/aktiv_imp
+dbimport aktiv_imp -d datadbs2
+
+
+Verify the end of dbimport.out .  == > "dbimport completed" 
+
+============== rataktp4_vm ============== 
+
+cd /tmp/informix/REORG/rataktp4_vm/benutzer
+dbimport benutzer -d datadbs1
+
+cd /tmp/informix/REORG/rataktp4_vm/rueckmeldung
+dbimport rueckmeldung -d datadbs1
+
+
+Verify the end of dbimport.out .  == > "dbimport completed" 
+
+============== ratcalp2_vm ============== 
+
+
+
+cd /tmp/informix/REORG/ratcalp2_vm/reg 
+dbimport reg -d datadbs1
+
+cd /tmp/informix/REORG/ratcalp2_vm/port_reg  
+dbimport port_reg -d datadbs1
+
+cd /tmp/informix/REORG/ratcalp2_vm/debitchg
+dbimport debitchg -d datadbs1
+
+cd /tmp/informix/REORG/ratcalp2_vm/reg_imp
+dbimport reg_imp -d datadbs1
+
+
+Verify the end of dbimport.out .  == > "dbimport completed" 
+
+13) Verify the Import .
+==============================================================
+
+informix@adetrmas:/opt/informix/reorg/scripts/scripts> ./verify_table_record.sh
+
+
+Rename the file to table_record_count_after_reorg.txt
+-------------------------------------------------------
+mv table_record_count.txt table_record_count_after_reorg.txt
+
+
+Calculate the difference in the before and after file there should be no difference.
+--------------------------------------------------------------------------------------
+diff table_record_count_before_reorg.txt table_record_count_after_reorg.txt   ====== There should be no difference 
+              
+
+
+
+
+15) Enable the logging mode of the database .   This step is required anyways .
+==============================================================
+
+Switch to each instance before taking backup
+--------------------------------------------
+
+ontape -s -U <databaselist>                                     #ontape -s -U kalu locktest stores_demo
+
+
+rataktp1_vm
+=============
+ontape -s -U arsoc erwerb misc subvent subventmulti tochgreq tochgval
+
+rataktp2_vm
+=============
+ontape -s -U aktiv aktiv_imp port_aktiv tausch wechsel
+
+rataktp4_vm
+==============
+ontape -s -U benutzer rueckmeldung
+
+ratcalp2_vm
+==============
+ontape -s -U debitchg port_reg reg reg_imp 
+
+
+
+16) Take full backup
+==============================================================
+
+Switch to each instance before taking backup
+--------------------------------------------
+
+onbar -b -L 0                             ==============> do this rataktp1_vm.
+onbar -b -L 0                                   ==============> do this rataktp2_vm.
+onbar -b -L 0                                   ==============> do this rataktp4_vm.
+onbar -b -L 0                                   ==============> do this ratcalp2_vm.
+
+
+17) Record the logging mode for the database 
+-----------------------------------------
+informix@adetrmas:/opt/informix/reorg/scripts/scripts> ./check_logging_mode.sh > logging_after.txt
+
+check the logging mode before and after the activity 
+
+informix@adetrmas:/opt/informix/reorg/scripts/scripts> diff logging_before.txt logging_after.txt
+
+
+18) Follow these setps to generate the data
+informix@adetrmas:/opt/informix/reorg/scripts/scripts> ./get_sizes_for_Tables_main.sh
+WORKDIR=/opt/informix/reorg/scripts
+cat $WORKDIR/files/get_sizes_for_Tables.txt
+Copy paste the data to this excel before the reorg.
+
+
+
+19) Bring the database in online mode.
+==============================================================
+
+
+Switch to each instance before executing command
+-----------------------------------------------
+
+onmode -m                                                   ==============> do this rataktp1_vm.
+onmode -m                                                   ==============> do this rataktp2_vm.
+onmode -m                                                   ==============> do this rataktp4_vm.
+onmode -m                                                   ==============> do this ratcalp2_vm.
+
+
+
+20) Start monitoring from and applications from Informix side .
+==============================================================
+
+Drop an email to Application team to start applications and  monitoring  from their side ( the order of the steps should be correct . )
+
+
+21) Start the Monitoring from databse side.
+==============================================================
+
+cd /opt/informix/ifxmonitor/scripts
+informix@adetrmas:/opt/informix/ifxmonitor/scripts> vi config_ifxmonitor.sh
+
+#SET this VALUE is Y, to exit at anytime
+DO_YOU_WANT_TO_EXIT=Y
+
+Value after change
+---------------------
+#SET this VALUE is Y, to exit at anytime
+DO_YOU_WANT_TO_EXIT=N
+
+
+22) Sanity checks if any from application side .
+==============================================================
+
+Customer data query . 
+
+
+23) Check if functional users are connecting to the Database . 
+
+onstat -u
+
+
+
+24) Rollback plan is to restore the database one by one . 
+https://www.ibm.com/support/knowledgecenter/SSGU8G_14.1.0/com.ibm.bar.doc/ids_bar_235.htm
+

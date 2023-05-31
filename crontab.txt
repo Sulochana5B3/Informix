@@ -1,0 +1,85 @@
+select name,open_mode from v$database;
+select * from v$instance;
+crontab -l => For opening the Crontab
+For Connecting the DB:
+tnsping VFD2TEST
+cd $ORACLE_HOME;
+ps -ef|grep LOCAL;
+
+
+Syntax of crontab File Entries
+------------------------------
+A crontab file consists of commands, one command per line, that execute automatically at the time specified by the first five fields of each command line. These five fields, described in the following table, are separated by spaces.
+
+
+Time Field 			Values 
+----------			------
+Minute  			0-59 
+
+Hour 				0-23 
+
+Day of month 		1-31
+
+Month 			1-12 
+
+
+
+Day of week 
+
+0-6 (0 = Sunday) 
+
+Follow these guidelines for using special characters in crontab time fields:
+----------------------------------------------------------------------------
+Use a space to separate each field.
+
+Use a comma to separate multiple values.
+
+Use a hyphen to designate a range of values.
+
+Use an asterisk as a wildcard to include all possible values.
+
+Use a comment mark (#) at the beginning of a line to indicate a comment or a blank line.
+
+For example, the following crontab command entry displays a reminder in the user's console window at 4 p.m. on the first and fifteenth days of every month.
+
+
+0 16 1,15 * * echo Timesheets Due > /dev/console
+
+Each command within a crontab file must consist of one line, even if that line is very long. The crontab file does not recognize extra carriage returns. For more detailed information about crontab entries and command options, refer to the crontab(1) man page.
+
+
+You do not need to become superuser to edit your own crontabfile.
+
+Create a new crontab file, or edit an existing file.
+
+
+$ crontab -e [username]
+
+where username specifies the name of the user's account for which you want to create or edit a crontab file. You can create your own crontab file without superuser privileges, but you must have superuser privileges to creating or edit a crontab file for root or another user.
+
+Caution :–
+--------- 
+If you accidentally type the crontab command with no option, press the interrupt character for your editor. This character allows you to quit without saving changes. If you instead saved changes and exited the file, the existing crontab file would be overwritten with an empty file.
+
+Add command lines to the crontab file.
+
+Follow the syntax described in Syntax of crontab File Entries. The crontab file will be placed in the /var/spool/cron/crontabs directory.
+
+Verify your crontab file changes.
+
+
+# crontab -l [username]
+
+Example 8–1 Creating a crontab File
+
+The following example shows how to create a crontab file for another user.
+
+
+# crontab -e jones
+
+The following command entry added to a new crontab file automatically removes any log files from the user's home directory at 1:00 a.m. every Sunday morning. Because the command entry does not redirect output, redirect characters are added to the command line after *.log. Doing so ensures that the command executes properly.
+
+
+# This command helps clean up user accounts.
+
+1 0 * * 0 rm /home/jones/*.log > /dev/null 2>&1

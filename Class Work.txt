@@ -1,0 +1,109 @@
+DAY-1 (17/2/2023)
+=================
+Events that trigger a Checkpoint:
+--------------------------------
+1. The physical log buffer becomes 75 % full.
+2. The time specified by the CKPTINTVL parameter in the ONCONFIG file is reached.
+3. The onmode –c command is used to request a sync checkpoint
+4. During an archive.
+5. During a rollback.
+6. When the next to the last available logical log contains the last checkpoint. 
+
+---------------------------------
+=> If we want to identify the port information in any server
+	cd /etc/server
+	8080 is the default port number of Informix
+	IBM has the Passport advantage feature from there we can download our installation files
+		14.10.FC10 (F-> LINUX) // F->64 bit & T->32 bit
+=> If we want to find the information about Server
+	In Command prompt: uname -a
+ARCHITECTURE:
+-------------
+1) DB SERVER: In DB server we can have multiple Instances
+2) Instance: We can have: 
+			  a. Memory(RAM)
+			  b. Disk (For storage Purpose)
+			  c. Processes (To Execute any operations we need processes)
+3) We can create the Database in Instances
+
+INSTANCE:
+---------
+1) Shared Memory (To provide space for performing any activity)
+
+	Ex: select * from Customer;
+
+	Evaluation of Query:
+	--------------------
+	1. The client can give query(High Level) to the Instance
+	2. The Instance can allocate that query to the Shared Memory
+	3. The Shared Memory can convert that query to the Binary format 
+	4. After that the SM can initiate one thread (resourses) to the process
+	5. The process can fetch the Data from the Disk and return back to SM
+	6. The SM can give reply to the Client 
+SHARED MEMORY:
+-------------
+=> Buffer Pool can provide the space to perform any activity
+1) Physical Log Buffer: The database server uses the physical-log buffer to hold before-images of some of the modified dbspace pages.
+2) Logical Log Buffer: The database server uses the logical log to store a record of changes to the database server at a since the last dbspace backup.
+	Before Write => Physical LB (Before Update)
+	After write  => Logical LB (After update)
+	EX:           update
+		a=10 -------->a=11
+	      physical       Logical
+	* The value should be 11, Because first it will search for Logical buffer and then it will return
+	* Once we issue the Commit, then only the changes will effect in physical Log buffer.
+
+* In Logical log buffer, If we insert any data, then if LLB is exceeds upto 100% then the Event will occurs then checkpoint will occurs.
+* The check point can flush (writes) data from Logical Log Buffer to Logical Log 
+* We can't perform the ROLLBACK operation in Informix
+* Check point will occur to make the DB consistent
+
+EVENTS:
+-------
+1: when logical log is used 100%
+
+2: ckpt interval Parameter is 300 sec completed 
+
+3: when external backup occur 
+
+4: when you down the database checkpoint will occur 
+
+* High Availability Data Replication (known as HDR) is intrinsic functionality within Informix On-Line which enables the replication of one instance to another, to add resilience.
+
+
+
+
+How to down the Dbspace
+
+AIX in flag positions
+
+Read Ahead
+
+ACID Properties
+A-> Automicity
+C-> Consistency
+I-> Intigrity
+D-> Durability
+
+onstat -g ntt  => To get the time duration of BUFF read & write
+
+
+
+Jun@1664
+
+LOCKS -> To maintain the consistency of the DB we can use Locks (onstat -k)
+
+Row-label lock => Only one row can lock
+
+
+
+NSR Parameters:
+
+alarm log file -> cd IDS/14.10/etc
+
+crontab -l (Script)
+
+
+
+
+
