@@ -1,0 +1,149 @@
+Hello all, as announced,
+
+the steps that are needed for a final implementation of the Tramo test environment in Berlin.
+
+New virtual Linux server in Berlin for Informix database in test environment:                 vltn092 (NAT IP address not known at this time)
+New Informix Instance in Berlin on that server :                                                                              vltn092_101tcp
+Communication port to Informix instance :                                                                                      1540
+
+How to go further on :
+
+1.	If network team (Mircea) gives his ok that everything is in place, please test the connectivity (from adettmacc1, adetrmdb1 and adekatbs-z2.mdv.mmo.de)
+2.	Make an entry in the sqlhosts on adettmacc1 (32- and 64 bit) and adetrmdb1 with the NAT address !!
+
+		vltn092_101tcp	onsoctcp	10.32.232.165	1540
+3.	The entry in the sqlhosts on adekatbs-z2.mdv.mmo.de has to be done by deployment team (/opt/Informix/etc/sqlhosts)
+4.	Copy the ONCONFIG from qlt4175 to vltn092
+5.	Enable internal user management for the Informix instance on the linux server vltn092 (here we need /etc/informix/allowed.surrogates, and USERMAPPING, REMOTE_SERVER_CFG and REMOTE_USERS_CFG must be set)
+6.	Copy server.xxxx and users.xxxx from qlt4175 to $INFORMIXDIR on vltn092
+7.	Copy allowed.surrogates to vltn092
+8.	Are the daemon users already included in the users.xxxx ?
+9.	Dbexport of all databases on qlt4175_200tcp from dataset 3 and 4 (should be executed on adettmacc1)
+10.	Dbimport of those databases into vltn092_101tcp
+11.	Unload of table d2ascfg on benutzer@ qlt4175_200tcp
+12.	Delete the content of d2ascfg
+13.	Change the table entries to the new Informix instance vltn092_101tcp
+14.	Load into the table d2ascfg
+15.	Dbexport of benutzer from qlt4175_200tcp and dbimport into vltn092_101tcp
+
+This is the preparation from DB side. @Sulochana Vemula, Vodafone: please get in contact with Tino Schwedesky for that (and for adekatbs-z2.mdv.mmo.de with Ursula Sluiter)
+
+Preparing of the configuration change for all applications (erni, bert, d2as, CSM60) could be done every time. 
+CSM60: libtmack.env 
+
+Regarding the connection test to the new Informix instance:
+Of course it is depending upon the day when the connection is established.
+Mircea agreed to provide the NAT IP addresses in the teams chat.
+
+Restart of all applications with the switch to the new configuration could be done on Thursday 25th of June or on 30th of June.
+Application team should contact Ursula Sluiter for that.
+
+
+============================================================================================
+For production (DB team):
+
+Please check if the raw device /opt/informix/rdsk/adetrtest can be switched to adetrmdb2
+If yes: 
+copy all related files of prod_tramo to adetrmdb2 
+Check if the instance is coming up and can be connected
+Check if a full backup is possible 
+
+Hopefully I don’t forget important tasks. Good luck and see you soon 😊
+
+
+Files that needs to be copied:
+------------------------------
+1. Start file: oninit -v
+2. Stop file: onmode -k
+3. Switch file: switch_tramo_prod_14.10.12.sh
+4. ONCONFIG file: onconf.if_prodtest_vm
+5. Sqlhosts file: sqlhosts
+    
+    cd $INFORMIXDIR
+    cd /opt/informix/IDS/14.10.12/etc
+    We have to add below line at the end of sqlhosts file:
+    
+    prodtest_vm  ontlitcp    adetrmdb1.dc-ratingen.de    informix-tli7
+	
+6. Initialize the instance:
+    . ./switch_tramo_prod_14.10.12.sh
+    onstat -
+    oninit -v
+    
+    If we see the MODE =5 --> Means our instance got created
+    
+    Check the Status of Instance & Message log after Initialization:
+    onstat -
+    onstat -m
+	
+7. Check the backup status:
+
+	Take backup (recommended) --> onbar -b -L 0
+	
+    We have to create the directories of TAPEDEV & LTAPEDEV as per config file:
+    
+    TAPEDEV /opt/informix/backup/prodtest/ttapedev
+    LTAPEDEV /opt/informix/backup/prodtest/ltapedev
+	
+	TAPEDEV /opt/informix/backup/rataktp1/ttapedev
+# LTAPEDEV     - The tape device path for logical logs
+	LTAPEDEV /opt/informix/backup/rataktp1/ltapedev
+
+
+ oninit -v
+Warning: This parameter has been discontinued. (CDR_MEM)
+Warning: This parameter has been discontinued. (GSKIT_VERSION)
+oninit: DBSERVERNAME 'prodtest_vm' not in sqlhosts file or sqlhosts file contents
+are damaged.
+Reading configuration file '/opt/informix/IDS/14.10.12/etc/onconf.if_prodtest_vm'...succeeded
+Creating /INFORMIXTMP/.infxdirs...succeeded
+Allocating and attaching to shared memory...succeeded
+Creating resident pool 87546 kbytes...succeeded
+Creating infos file "/opt/informix/IDS/14.10.12/etc/.infos.prodtest_vm"...succeeded
+Linking conf file "/opt/informix/IDS/14.10.12/etc/.conf.prodtest_vm"...succeeded
+
+WARNING: server initialization failed or timed out.
+Also check the message log, online.log, for errors.
+
+
+  908: Attempt to connect to database server (prodtest_vm) failed.
+ ISAM error: no more locks
+
+
+ onstat -c | grep DBSERVERNAME
+# DBSERVERNAME    - The name of the default database server
+DBSERVERNAME prodtest_vm
+#                     DBSERVERNAME or DBSERVERALIASES that uses a
+
+
+
+ cat onconf.if_prodtest_vm | grep DBSERVER
+# DBSERVERNAME    - The name of the default database server
+# DBSERVERALIASES - The list of up to 32 alternative dbservernames,
+DBSERVERNAME prodtest_vm
+DBSERVERALIASES tramo_prod
+#                     DBSERVERNAME or DBSERVERALIASES that uses a
+
+
+========================================================================================
+ping 46.108.87.1
+telnet 46.108.87.1 1535
+
+nslookup 46.108.87.1
+ping 46.108.87.1
+nc -vz 46.108.87.1 1535
+
+telnet 46.108.87.1 1535
+
+telnet 10.132.80.54 1535
+
+telnet 46.108.97.1 1535
+
+telnet 46.108.87.2 1535
+
+vltn092_101tcp	onsoctcp	10.132.80.54 1535
+
+
+vltn092_101tcp	onsoctcp	46.108.87.2	1540
+
+10.132.20.54 to 46.108.87.2 1535

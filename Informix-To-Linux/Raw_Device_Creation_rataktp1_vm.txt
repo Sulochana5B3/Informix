@@ -1,0 +1,188 @@
+PLAN FOR CREATING/ADDING CHUNKS IN RATAKTP1_VM:
+===============================================
+1. Take level 0 backup in adetrmdb2: --DONE
+
+	Switch to each instance before taking backup ( do it one by one )
+	-----------------------------------------------------------------
+	. ./switch_rataktp1_vm.sh
+	onbar -b -L 0           ==============> do this rataktp1_vm (Monday, August  3, 2026 at  4:28:31 AM CEST) --DONE
+	
+	. ./switch_rataktp2_vm.sh
+	onbar -b -L 0			==============> do this rataktp2_vm (Monday, August  3, 2026 at  4:29:52 AM CEST) --DONE
+	
+	. ./switch_rataktp4_vm.sh
+	onbar -b -L 0			==============> do this rataktp4_vm (Monday, August  3, 2026 at  4:31:11 AM CEST) --DONE
+	
+	. ./switch_ratcalp2_vm.sh 
+	onbar -b -L 0			==============> do this ratcalp2_vm (Monday, August  3, 2026 at  4:32:22 AM CEST) --DONE
+
+
+informix@adetrmdb2:/opt/informix> ss
+rataktp1_vm
+informix@adetrmdb2:/opt/informix> onstat -d
+
+IBM Informix Dynamic Server Version 14.10.FC12W12WE -- On-Line -- Up 74 days 02:34:42 -- 4435968 Kbytes
+2026-08-03 04:33:39
+
+Dbspaces
+address          number   flags      fchunk   nchunks  pgsize   flags    owner    name
+10e046028        1        0x1        1        2        2048     N  BA    informix rootdbs
+10eb8e700        2        0x2001     2        1        2048     N TBA    informix tempdbs
+10eb8e958        3        0x1        3        2        6144     N  BA    informix datadbs1
+10eb8ebb0        4        0x1        5        2        6144     N  BA    informix datadbs2
+10eb8f028        5        0x1        7        2        2048     N  BA    informix logdbs
+10eb8f280        6        0x2001     9        1        2048     N TBA    informix tempdbspace
+ 6 active, 2047 maximum
+
+Chunks
+address          chunk/dbs     offset     size       free       bpages     flags pathname
+10e046280        1      1      0          1500000    1234328               PO-B-- /opt/informix/rdsk/rinformix01
+10eb92028        2      2      1500000    250000     249797                PO-B-- /opt/informix/rdsk/rinformix01
+10eb93028        3      3      0          833333     3                     PO-B-- /opt/informix/rdsk/rinformix02
+10eb94028        4      3      0          833333     506528                PO-B-- /opt/informix/rdsk/rinformix03
+10eb95028        5      4      0          833333     120719                PO-B-- /opt/informix/rdsk/rinformix04
+10eb96028        6      4      0          833333     833330                PO-B-- /opt/informix/rdsk/rinformix05
+10eb97028        7      5      0          2500000    1499947               PO-B-- /opt/informix/rdsk/rinformix06
+10eb98028        8      5      0          2500000    2499997               PO-B-- /opt/informix/rdsk/rinformix07
+10eb99028        9      6      0          250000     249797                PO-B-- /opt/informix/rdsk/rinformix08
+10eb91028        10     1      0          2499999    2484077               PO-B-- /opt/informix/rdsk/rinformix28
+ 10 active, 32766 maximum
+
+NOTE: The values in the "size" and "free" columns for DBspace chunks are
+      displayed in terms of "pgsize" of the DBspace to which they belong.
+
+
+Expanded chunk capacity mode: always
+
+
+Creating the DB Spaces RATAKTP1_VM:
+===================================
+onspaces -c -d datadbs3 -p /opt/informix/rdsk/rinformix09 -o 0 -k 6 -s 5119998
+onspaces -c -d datadbs4 -p /opt/informix/rdsk/rinformix16 -o 0 -k 6 -s 5119998
+
+Adding the chunks RATAKTP1_VM:
+==============================
+onspaces -a datadbs3 -p /opt/informix/rdsk/rinformix31 -o 0 -s 5119998
+onspaces -a datadbs3 -p /opt/informix/rdsk/rinformix32 -o 0 -s 5119998
+onspaces -a datadbs4 -p /opt/informix/rdsk/rinformix33 -o 0 -s 5119998
+onspaces -a datadbs4 -p /opt/informix/rdsk/rinformix34 -o 0 -s 5119998
+onspaces -a datadbs1 -p /opt/informix/rdsk/rinformix35 -o 0 -s 5119998
+onspaces -a datadbs1 -p /opt/informix/rdsk/rinformix26 -o 0 -s 5119998
+onspaces -a datadbs2 -p /opt/informix/rdsk/rinformix36 -o 0 -s 5119998
+
+
+After that I need to create the databases on respective dbspaces on rataktp1_vm from remaining 3 instances.
+
+Create the schemas in the databases.
+
+
+
+
+
+
+
+
+
+======================================================
+Test has been done on tramo_prod:
+=================================
+onspaces -d tempdbspace
+
+In tramo_prod:
+
+onspaces -c -d datadbs5 -p /opt/informix/rdsk/adetrtest/rinformix10 -o 0 -k 6 -s 5119998   
+
+onspaces -d datadbs4 -p /opt/informix/rdsk/adetrtest/rinformix08 -o 0
+
+
+/opt/informix/rdsk/adetrtest/rinformix08
+/opt/informix/rdsk/adetrtest/rinformix10
+
+
+
+=========================================================================
+informix@adetrmdb2:/opt/informix> ss
+rataktp1_vm
+informix@adetrmdb2:/opt/informix> onspaces -c -d datadbs3 -p /opt/informix/rdsk/rinformix09 -o 0 -k 6 -s 5119998
+Verifying physical disk space, please wait ...
+Space successfully added.
+
+** WARNING **  A level 0 archive of Root DBSpace will need to be done.
+informix@adetrmdb2:/opt/informix>
+informix@adetrmdb2:/opt/informix> onspaces -c -d datadbs4 -p /opt/informix/rdsk/rinformix16 -o 0 -k 6 -s 5119998
+Verifying physical disk space, please wait ...
+Space successfully added.
+
+** WARNING **  A level 0 archive of Root DBSpace will need to be done.
+
+
+
+informix@adetrmdb2:/opt/informix> onspaces -a datadbs3 -p /opt/informix/rdsk/rinformix31 -o 0 -s 5119998
+Verifying physical disk space, please wait ...
+Chunk successfully added.
+informix@adetrmdb2:/opt/informix> onspaces -a datadbs3 -p /opt/informix/rdsk/rinformix32 -o 0 -s 5119998
+Verifying physical disk space, please wait ...
+Chunk successfully added.
+informix@adetrmdb2:/opt/informix> onspaces -a datadbs4 -p /opt/informix/rdsk/rinformix33 -o 0 -s 5119998
+Verifying physical disk space, please wait ...
+Chunk successfully added.
+informix@adetrmdb2:/opt/informix> onspaces -a datadbs4 -p /opt/informix/rdsk/rinformix34 -o 0 -s 5119998
+Verifying physical disk space, please wait ...
+Chunk successfully added.
+informix@adetrmdb2:/opt/informix> onspaces -a datadbs1 -p /opt/informix/rdsk/rinformix35 -o 0 -s 5119998
+Verifying physical disk space, please wait ...
+Chunk successfully added.
+informix@adetrmdb2:/opt/informix> onspaces -a datadbs1 -p /opt/informix/rdsk/rinformix26 -o 0 -s 5119998
+Verifying physical disk space, please wait ...
+Chunk successfully added.
+informix@adetrmdb2:/opt/informix> onspaces -a datadbs2 -p /opt/informix/rdsk/rinformix36 -o 0 -s 5119998
+Verifying physical disk space, please wait ...
+Chunk successfully added.
+
+
+informix@adetrmdb2:/opt/informix> onstat -d
+
+IBM Informix Dynamic Server Version 14.10.FC12W12WE -- On-Line -- Up 74 days 02:46:19 -- 4435968 Kbytes
+2026-08-03 04:45:16
+
+Dbspaces
+address          number   flags      fchunk   nchunks  pgsize   flags    owner    name
+10e046028        1        0x20001    1        2        2048     N  BA    informix rootdbs
+10eb8e700        2        0x2001     2        1        2048     N TBA    informix tempdbs
+10eb8e958        3        0x20001    3        4        6144     N  BA    informix datadbs1
+10eb8ebb0        4        0x20001    5        3        6144     N  BA    informix datadbs2
+10eb8f028        5        0x1        7        2        2048     N  BA    informix logdbs
+10eb8f280        6        0x2001     9        1        2048     N TBA    informix tempdbspace
+114af7050        7        0x20001    11       3        6144     N  BA    informix datadbs3
+114af4bb8        8        0x20001    12       3        6144     N  BA    informix datadbs4
+ 8 active, 2047 maximum
+
+Chunks
+address          chunk/dbs     offset     size       free       bpages     flags pathname
+10e046280        1      1      0          1500000    1234330               PO-B-- /opt/informix/rdsk/rinformix01
+10eb92028        2      2      1500000    250000     249797                PO-B-- /opt/informix/rdsk/rinformix01
+10eb93028        3      3      0          833333     3                     PO-B-- /opt/informix/rdsk/rinformix02
+10eb94028        4      3      0          833333     506528                PO-B-- /opt/informix/rdsk/rinformix03
+10eb95028        5      4      0          833333     120719                PO-B-- /opt/informix/rdsk/rinformix04
+10eb96028        6      4      0          833333     833330                PO-B-- /opt/informix/rdsk/rinformix05
+10eb97028        7      5      0          2500000    1499947               PO-B-- /opt/informix/rdsk/rinformix06
+10eb98028        8      5      0          2500000    2499997               PO-B-- /opt/informix/rdsk/rinformix07
+10eb99028        9      6      0          250000     249797                PO-B-- /opt/informix/rdsk/rinformix08
+10eb91028        10     1      0          2499999    2484067               PO-B-- /opt/informix/rdsk/rinformix28
+114af4050        11     7      0          853333     853280                PO-B-- /opt/informix/rdsk/rinformix09
+1132ea028        12     8      0          853333     853280                PO-B-- /opt/informix/rdsk/rinformix16
+114aa8028        13     7      0          853333     853330                PO-B-- /opt/informix/rdsk/rinformix31
+113295028        14     7      0          853333     853330                PO-B-- /opt/informix/rdsk/rinformix32
+1136d0028        15     8      0          853333     853330                PO-B-- /opt/informix/rdsk/rinformix33
+112bac028        16     8      0          853333     853330                PO-B-- /opt/informix/rdsk/rinformix34
+113774028        17     3      0          853333     853330                PO-B-- /opt/informix/rdsk/rinformix35
+114002028        18     3      0          853333     853330                PO-B-- /opt/informix/rdsk/rinformix26
+114075028        19     4      0          853333     853330                PO-B-- /opt/informix/rdsk/rinformix36
+ 19 active, 32766 maximum
+
+NOTE: The values in the "size" and "free" columns for DBspace chunks are
+      displayed in terms of "pgsize" of the DBspace to which they belong.
+
+
+Expanded chunk capacity mode: always
+

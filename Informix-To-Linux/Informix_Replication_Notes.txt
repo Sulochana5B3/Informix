@@ -1,0 +1,74 @@
+Informix data replication:
+--------------------------
+HDR,RSS --> Is not possible
+Enterprise replication(Table based) --> Is possible
+
+Databases --> Buffer & un-buffer will work
+Tables --> ERK (Indexes,primary,unique constraint)
+
+Source: 		Target:
+			utf-8
+Firewall should open for user Informix
+
+Cleint_LOCALE --> Need to discuss it with Juergen
+
+Enterprise replication --> We can use all(blob)
+
+-> We have to determine all the tables under ER
+-> Only insert and update can replicate not delete(Also replicated - optional).
+-> 32000 servers can communicate
+-> Testing can be done in Source & Target.
+-> Total duration: 4-5 days for complete setup & 
+
+Immediate transfer --> Everything written in logs
+Hourly and days data
+
+How to send data:
+1. Define the replicate & CDR check repair in table and it will bring all data to target.
+
+2. Unload in source and load in target(Make sure to table exists)
+
+-> Sqlhosts has to be changed (Replication should define here)
+
+-> 
+
+
+=====================================================================================
+cdr define repl --connect=rep_dus --immed --ats --conflict=ignore --ris --firetrigger --scope=trans --fullrow y rep_auftragextract  \
+  'P subvent@rep_dus:tramo.auftragextract' 'select * from auftragextract'  \
+  'R subvent@rep_ber:tramo.auftragextract' 'select * from auftragextract'
+  
+
+
+Define source server:
+mkdir $INFORMIXDIR/ATS $INFORMIXDIR/RIS
+cdr define server --ats=$INFORMIXDIR/ATS --ris=$INFORMIXDIR/RIS  --init  rep_dus
+
+cdr list server
+SERVER                 ID STATE    STATUS     QUEUE  CONNECTION CHANGED
+-----------------------------------------------------------------------
+rep_dus                 1 Active   Local           0
+
+To delete:
+cdr delete server rep_dus
+
+Define target server:
+mkdir $INFORMIXDIR/ATS $INFORMIXDIR/RIS  
+cdr define server --ats=$INFORMIXDIR/ATS --ris=$INFORMIXDIR/RIS  --init  --sync=rep_dus  --connect=rep_ber  rep_ber   --> Can be done in source
+
+Start replication:
+cdr start repl rep_auftragextract
+cdr list repl
+
+P --> Primary
+R --> Read Only
+mkdir $INFORMIXDIR/ATS $INFORMIXDIR/RIS  --> Must be done in both sides
+
+Creating smart blob space: (Must be created in both sides)
+
+onspaces -c -S sbspace -p /opt/informix/rdsk/adetrtest/rinformix02 -o 0 -s 1024000 -Df LOGGING=ON 
+
+vi onconf.if_prodtest_vm
+CDR_QDATA_SBSPACE sbspace
+
+Shutdown: onmode -ucky

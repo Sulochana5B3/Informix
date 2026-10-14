@@ -1,0 +1,254 @@
+MIGRATION PLAN FOR SWITCHING SINGLE INSTANCE:
+=============================================
+
+===========================================PRE PLAN============================================
+
+STEP1: Creating dbspaces and Adding empty chunks in rataktp1_vm instance: --> DONE
+-------------------------------------------------------------------------
+	TAKE LEVEL 0 BACKUP IN ADETRMDB2: --DONE
+
+	Switch to each instance before taking backup ( do it one by one )
+	-----------------------------------------------------------------
+	. ./switch_rataktp1_vm.sh
+	onbar -b -L 0           ==============> do this rataktp1_vm (Monday, August  3, 2026 at  4:28:31 AM CEST) --DONE
+	
+	. ./switch_rataktp2_vm.sh
+	onbar -b -L 0			==============> do this rataktp2_vm (Monday, August  3, 2026 at  4:29:52 AM CEST) --DONE
+	
+	. ./switch_rataktp4_vm.sh
+	onbar -b -L 0			==============> do this rataktp4_vm (Monday, August  3, 2026 at  4:31:11 AM CEST) --DONE
+	
+	. ./switch_ratcalp2_vm.sh 
+	onbar -b -L 0			==============> do this ratcalp2_vm (Monday, August  3, 2026 at  4:32:22 AM CEST) --DONE
+
+	CREATING/ADDING CHUNKS IN RATAKTP1_VM:
+	
+	Creating the DB Spaces RATAKTP1_VM:
+	----------------------------------
+	onspaces -c -d datadbs3 -p /opt/informix/rdsk/rinformix09 -o 0 -k 6 -s 5119998
+	onspaces -c -d datadbs4 -p /opt/informix/rdsk/rinformix16 -o 0 -k 6 -s 5119998
+
+	Adding the chunks RATAKTP1_VM:
+	------------------------------
+	onspaces -a datadbs3 -p /opt/informix/rdsk/rinformix31 -o 0 -s 5119998
+	onspaces -a datadbs3 -p /opt/informix/rdsk/rinformix32 -o 0 -s 5119998
+	onspaces -a datadbs4 -p /opt/informix/rdsk/rinformix33 -o 0 -s 5119998
+	onspaces -a datadbs4 -p /opt/informix/rdsk/rinformix34 -o 0 -s 5119998
+	onspaces -a datadbs1 -p /opt/informix/rdsk/rinformix35 -o 0 -s 5119998
+	onspaces -a datadbs1 -p /opt/informix/rdsk/rinformix26 -o 0 -s 5119998
+	onspaces -a datadbs2 -p /opt/informix/rdsk/rinformix36 -o 0 -s 5119998
+	
+STEP2: Creating the databases and it's relevent tables and indexes in rataktp1_vm: --> DONE
+----------------------------------------------------------------------------------
+DATABASE CREATION IN ALLOCATED DBSPACES:
+
+	dbaccess -> Connection to rataktp1_vm -> sysmaster -> create -> Give DB name -> Select the dbspace -> Create new database.
+	aktiv				datadbs3
+	port_aktiv			datadbs3
+	wechsel				datadbs3
+	tausch				datadbs3
+	rueckmeldung		datadbs4
+	benutzer			datadbs4
+	reg					datadbs4
+	port_reg			datadbs4
+	debitchg			datadbs4
+	
+CREATING DB SCHEMA AND IT'S TABLES AND INDEXES:
+
+	cd /opt/informix/berlin/SCHEMA/NEW_SCHEMA
+	dbaccess -> Connection to rataktp1_vm -> Query Language -> New -> Choose -> The right sql of correct database.
+	
+	
+=========================================ACTUAL PLAN===============================================
+
+STEP1:Stop the DBA monitoring and cron jobs in adetrmdb2 server:
+----------------------------------------------------------------
+
+	In adetrmdb2:         --- DONE
+	cd /opt/informix/ifxmonitor/scripts
+	vi config_ifxmonitor.sh 
+	
+	#SET this VALUE is Y, to exit at anytime
+	DO_YOU_WANT_TO_EXIT=N
+	
+	Cron Backup: /opt/informix/berlin/CRON_JOBS
+	crontab -l  -- DONE
+	crontab -e
+	Disable all the running cronjobs with single hash in adetrmdb2 server.
+
+STEP2: Ensure no user is connecting: --- DONE
+------------------------------------	
+	Check user connections from each instance and kill if there are any active application sessions. Only Informix user should be there.
+	onstat -u
+	onstat -ur
+	
+	onmode -z sess_id -> To kill session incase any active session after application stop.
+	
+	Note: Take the restart of rataktp1_vm to reflect the config changes that has been made
+	. ./switch_rataktp1_vm.sh
+	onmode -k   --> Command to shutdown the instance.
+	oninit -v   --> To start the instance
+
+STEP3: DBA to take backup of production instances (rataktp1_vm,rataktp2_vm,rataktp4_vm,ratcalp2_vm) in adetrmdb2 server:  -- DONE
+------------------------------------------------------------------------------------------------------------------------	
+	Switch to each instance before taking backup ( do it one by one )
+	-----------------------------------------------------------------
+	. ./switch_rataktp1_vm.sh
+	onbar -b -L 0           ==============> do this rataktp1_vm (Sunday, August 16, 2026 at  4:39:40 AM CEST)
+	
+	. ./switch_rataktp2_vm.sh
+	onbar -b -L 0			==============> do this rataktp2_vm 
+	
+	. ./switch_rataktp4_vm.sh
+	onbar -b -L 0			==============> do this rataktp4_vm 
+	
+	. ./switch_ratcalp2_vm.sh 
+	onbar -b -L 0			==============> do this ratcalp2_vm 
+
+	
+STEP4: Transfer the data with scripts from rataktp2_vm,rataktp4_vm,ratcalp2_vm  to  rataktp1_vm server & Update statistics:
+---------------------------------------------------------------------------------------------------------------------------
+
+	Unload the data from rataktp2_vm,rataktp4_vm,ratcalp2_vm:
+	=========================================================
+	. ./switch_rataktp2_vm.sh     --> Switch to rataktp2_vm and unload the tables of below databases:
+	-------------------------------------------------------------------------------------------------
+	aktiv@rataktp2_vm:
+	cd /opt/informix/berlin/UNLOAD/aktiv
+	time dbaccess aktiv@rataktp2_vm aktiv.sql
+	
+	port_aktiv@rataktp2_vm:
+	cd /opt/informix/berlin/UNLOAD/port_aktiv
+	time dbaccess port_aktiv@rataktp2_vm port_aktiv.sql
+	
+	tausch@rataktp2_vm:
+	cd /opt/informix/berlin/UNLOAD/tausch
+	time dbaccess tausch@rataktp2_vm tausch.sql
+	
+	wechsel@rataktp2_vm:
+	cd /opt/informix/berlin/UNLOAD/wechsel
+	time dbaccess wechsel@rataktp2_vm wechsel.sql
+	
+	. ./switch_rataktp4_vm.sh     --> Switch to rataktp4_vm and unload the tables of below databases:
+	-------------------------------------------------------------------------------------------------
+	cd /opt/informix/berlin/UNLOAD/benutzer
+	benutzer@rataktp4_vm:  --> Take backup of below during the downtime.
+	
+	unload to soccodes.unl select * from soccodes;
+	unload to tariffoptioncodes.unl select * from tariffoptioncodes;
+	
+	rueckmeldung@rataktp4_vm:
+	cd /opt/informix/berlin/UNLOAD/rueckmeldung
+	time dbaccess rueckmeldung@rataktp4_vm rueckmeldung.sql
+	
+	. ./switch_ratcalp2_vm.sh     --> Switch to ratcalp2_vm and unload the tables of below databases:
+	-------------------------------------------------------------------------------------------------
+	debitchg@ratcalp2_vm:
+	cd /opt/informix/berlin/UNLOAD/debitchg
+	time dbaccess debitchg@ratcalp2_vm debitchg.sql
+	
+	reg@ratcalp2_vm:
+	cd /opt/informix/berlin/UNLOAD/reg
+	time dbaccess reg@ratcalp2_vm reg.sql
+	
+	port_reg@ratcalp2_vm:
+	cd /opt/informix/berlin/UNLOAD/port_reg
+	time dbaccess port_reg@ratcalp2_vm port_reg.sql
+	
+	Load the data to rataktp1_vm:
+	=============================
+
+	. ./switch_rataktp1_vm.sh     --> Switch to rataktp1_vm to load the tables of below databases:
+	----------------------------------------------------------------------------------------------
+	aktiv@rataktp1_vm:
+	cd /opt/informix/berlin/UNLOAD/aktiv
+	time dbaccess aktiv@rataktp1_vm load_aktiv.sql
+	
+	port_aktiv@rataktp1_vm:
+	cd /opt/informix/berlin/UNLOAD/port_aktiv
+	time dbaccess port_aktiv@rataktp1_vm load_port_aktiv.sql
+	
+	tausch@rataktp1_vm:
+	cd /opt/informix/berlin/UNLOAD/tausch
+	time dbaccess tausch@rataktp1_vm load_tausch.sql
+	
+	wechsel@rataktp1_vm:
+	cd /opt/informix/berlin/UNLOAD/wechsel
+	time dbaccess wechsel@rataktp1_vm load_wechsel.sql
+
+	benutzer@rataktp1_vm:  --> Need to check
+	cd /opt/informix/berlin/UNLOAD/benutzer
+	load from stempel.unl insert into stempel;
+	load from contract_types.unl insert into contract_types;
+	load from d2ascfg.unl insert into d2ascfg;
+	load from soccodes.unl insert into soccodes;
+	load from tariffoptioncodes.unl insert into tariffoptioncodes;
+	
+	rueckmeldung@rataktp1_vm:
+	cd /opt/informix/berlin/UNLOAD/rueckmeldung
+	time dbaccess rueckmeldung@rataktp1_vm load_rueckmeldung.sql
+
+
+	debitchg@rataktp1_vm: --> Ignore this DB load.
+	cd /opt/informix/berlin/UNLOAD/debitchg
+	time dbaccess debitchg@rataktp1_vm debitchg.sql
+	
+	reg@rataktp1_vm:
+	cd /opt/informix/berlin/UNLOAD/reg
+	time dbaccess reg@rataktp1_vm load_reg.sql
+	
+	port_reg@rataktp1_vm:
+	cd /opt/informix/berlin/UNLOAD/port_reg
+	time dbaccess port_reg@rataktp1_vm load_port_reg.sql
+	
+	Update statistics of rataktp1_vm:
+	=================================
+	/opt/informix/finchen/finchen_rataktp1_low.sh >/opt/informix/finchen/finchen_rataktp1_low.log 2>&1
+	/opt/informix/finchen/finchen_rataktp1_high.sh >/opt/informix/finchen/finchen_rataktp1_high.log 2>&1  --> Not needed.
+	
+STEP5: Start the un-buffered logging of databases on  rataktp1_vm: --DONE
+------------------------------------------------------------------
+
+	rataktp1_vm:
+	ontape -s -U aktiv port_aktiv tausch wechsel benutzer rueckmeldung reg port_reg
+	
+	/opt/informix/backup/rataktp1/ttapedev
+	
+STEP6: Perform the Instance wise sanity and enable the DBA monitoring and activate the cronjobs on adetrmdb2:
+-------------------------------------------------------------------------------------------------------------
+
+	Instance Wise Sanity:
+	=====================
+	onstat -
+	onstat -l
+	onstat -p
+	onstat -m
+	onstat -F
+	onstat -g glo
+	onstat -g seg
+	
+	Enable the DBA monitoring:
+	==========================
+	cd /opt/informix/ifxmonitor/scripts
+	informix@adetrmdb2:/opt/informix/ifxmonitor/scripts> vi config_ifxmonitor.sh
+	
+	#SET this VALUE is Y, to exit at anytime
+	DO_YOU_WANT_TO_EXIT=Y
+	
+	Value after change
+	---------------------
+	#SET this VALUE is Y, to exit at anytime
+	DO_YOU_WANT_TO_EXIT=N
+
+	Activate the cron jobs:
+	=======================
+	crontab -l  
+	crontab -e  --> Uncomment only necessary scripts.
+	
+STEP7: Check the connections for single Instance(rataktp1_vm) from CSM60 and Tramo Applications:
+------------------------------------------------------------------------------------------------
+
+	onstat -u
+	onstat -ur
+
+

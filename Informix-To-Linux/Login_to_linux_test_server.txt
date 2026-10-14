@@ -1,0 +1,21 @@
+Login to Linux test:
+
+from 195.233.238119 IP
+ssh vgssh3vr
+ssh dea579yr
+
+sudo su - informix
+
+
+
+set.txt
+switch_prodtest_vm.sh
+
+
+project.max-shm-memory
+        usage            525MB
+        privileged      16.0GB      -   deny                                 -
+        system          16.0EB    max   deny 
+
+
+

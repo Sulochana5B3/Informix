@@ -1,0 +1,278 @@
+dbspaces:
+---------
+1,5,7,9,10,11
+
+onspaces -c -d datadbs2 -p /opt/informix/rdsk/adetrtest/rinformix05 -o 0 -k 6 -s 4500000
+onspaces -c -d datadbs3 -p /opt/informix/rdsk/adetrtest/rinformix07 -o 0 -k 6 -s 4500000
+onspaces -c -d datadbs4 -p /opt/informix/rdsk/adetrtest/rinformix09 -o 0 -k 6 -s 4500000
+onspaces -c -d tempdbspace -p /opt/informix/rdsk/adetrtest/rinformix10 -o 0 -t -k 6 -s 4500000
+
+onspaces -a datadbs1 -p /opt/informix/rdsk/adetrtest/rinformix01 -o 0 -s 4500000
+onspaces -a datadbs2 -p /opt/informix/rdsk/adetrtest/rinformix11 -o 0 -s 4500000
+
+select dbsname, sum(ti_nptotal) as alloc,
+                sum(ti_npused) as used,
+                sum(ti_npdata) as data
+  from systabnames, systabinfo
+where partnum = ti_partnum
+   and dbsname not like '%sys%'
+   and dbsname not like '%dbs%'
+   and dbsname not like '%HASH%'
+group by 1
+order by 2 desc
+
+1. To calculate the extent size of each database:
+
+dbschema -d tochgval -ss
+dbschema -d erwerb
+dbschema -d tochgreq
+dbschema -d misc
+dbschema -d subventmulti
+dbschema -d aktiv
+dbschema -d wechsel
+dbschema -d tausch
+dbschema -d reg
+dbschema -d port_reg
+
+2. Which database can be stored in which dbspace
+
+Databases must have same logging mode (That resulsts in huge amount of logical logs):
+insert into aktiv@tramo_prod:status select from aktiv@rataktp2_vm:status;
+
+3. Therefore we will follow the below approach:
+unload the data in adetrmdb2 and load it in adetrmdb1 tramo_prod.
+
+It is necessary for all the tables and it requires down time.
+Need to calculate the downtime 
+
+Action:
+load the benuzer DB to tramo_prod.
+
+auftragextract
+auftragblob
+auftragzeiten
+csmblob
+status
+
+auftragextract: reg
+extent size 300000 next size 150000 lock mode row;
+next size: 50% of extent size
+
+2791497
+180000
+174999
+15000
+298275
+12000
+199
+
+unload all the tables of bunezer database from production and load it in adetrmdb1 tramo_prod.
+load from d2ascfg.unl insert into d2ascfg;
+load from contract_types.unl insert into contract_types;
+load from soccodes.unl insert into soccodes;
+load from stempel.unl insert into stempel;
+load from tariffoptioncodes.unl insert into tariffoptioncodes;
+
+unload to contract_types.unl select * from contract_types;
+unload to soccodes.unl select * from soccodes;
+unload to stempel.unl select * from stempel;
+unload to tariffoptioncodes.unl select * from tariffoptioncodes;
+
+630000	
+840000	
+630000	
+630000	
+210000
+extent size 630000 next size 315000 lock mode row;
+----------------------------------------
+tochgval@tramo_prod:
+212: Cannot add index.
+131: ISAM error: no free disk space
+
+180000	
+119999	
+74999	
+225000	
+45000
+
+90000
+60000
+37500
+112500
+22500
+-----------------------------------
+erwerb@tramo_prod:
+
+174999	
+174999	
+69999	
+37500	
+49998
+
+87500
+87500
+35000
+18750
+24999
+-------------------------------------
+reg
+300000	
+300000	
+180000	
+180000	
+109999
+
+150000
+150000
+90000
+90000
+55000
+--------------------------------------
+port_reg
+3600	
+2400	
+2400	
+1999	
+799
+
+1800
+1200
+1200
+1000
+400
+--------------------------------------
+wechsel
+  225: Cannot create file for system catalog (systables).
+   131: ISAM error: no free disk space
+
+36000	
+45000	
+36000	
+27000	
+9000
+
+18000
+22500
+18000
+13500
+4500
+---------------------------------------
+misc
+  212: Cannot add index.
+   131: ISAM error: no free disk space
+
+12000	
+10000	
+6000	
+3000	
+3000
+
+6000
+5000
+3000
+1500
+1500
+
+------------------------------------
+subventmulti
+199	
+199	
+400	
+400	
+199
+
+100
+100
+200
+200
+100
+------------------------------------
+tausch
+   225: Cannot create file for system catalog (systables).
+   131: ISAM error: no free disk space
+
+29999	
+29999	
+29999	
+29999	
+14999
+
+15000
+15000
+15000
+15000
+7500
+---------------------
+15000	
+15000	
+9000	
+5000	
+6000
+
+7500
+7500
+4500
+2500
+3000
+
+=============================================
+informix@adetrmdb2:/opt/informix> onstat -d
+
+/opt/informix/rdsk/rinformix21
+/opt/informix/rdsk/rinformix21
+/opt/informix/rdsk/rinformix22
+/opt/informix/rdsk/rinformix23
+/opt/informix/rdsk/rinformix24
+/opt/informix/rdsk/rinformix25
+/opt/informix/rdsk/rinformix27
+
+rataktp4_vm:
+/opt/informix/rdsk/rinformix17
+/opt/informix/rdsk/rinformix17
+/opt/informix/rdsk/rinformix18
+/opt/informix/rdsk/rinformix19
+/opt/informix/rdsk/rinformix20
+/opt/informix/rdsk/rinformix30
+
+rataktp2_vm:
+/opt/informix/rdsk/rinformix10
+/opt/informix/rdsk/rinformix11
+/opt/informix/rdsk/rinformix12
+/opt/informix/rdsk/rinformix13
+/opt/informix/rdsk/rinformix14
+/opt/informix/rdsk/rinformix15
+/opt/informix/rdsk/rinformix10
+/opt/informix/rdsk/rinformix29
+
+rataktp1_vm:
+/opt/informix/rdsk/rinformix01
+/opt/informix/rdsk/rinformix01
+/opt/informix/rdsk/rinformix02
+/opt/informix/rdsk/rinformix03
+/opt/informix/rdsk/rinformix04
+/opt/informix/rdsk/rinformix05
+/opt/informix/rdsk/rinformix06
+/opt/informix/rdsk/rinformix07
+/opt/informix/rdsk/rinformix08
+/opt/informix/rdsk/rinformix28
+
+
+tramo_prod:
+ /opt/informix/rdsk/adetrtest/rinformix03
+ /opt/informix/rdsk/adetrtest/rinformix04
+ /opt/informix/rdsk/adetrtest/rinformix05
+ /opt/informix/rdsk/adetrtest/rinformix06
+ /opt/informix/rdsk/adetrtest/rinformix08
+ /opt/informix/rdsk/adetrtest/rinformix12
+ /opt/informix/rdsk/adetrtest/rinformix02
+ /opt/informix/rdsk/adetrtest/rinformix07
+ /opt/informix/rdsk/adetrtest/rinformix09
+ /opt/informix/rdsk/adetrtest/rinformix10
+ /opt/informix/rdsk/adetrtest/rinformix01
+ /opt/informix/rdsk/adetrtest/rinformix11
+
+
+
+
+
+

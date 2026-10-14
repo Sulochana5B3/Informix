@@ -1,0 +1,80 @@
+Step 0: Pre-checks
+-------------------
+echo $INFORMIXDIR
+echo $INFORMIXSERVER
+onstat -
+
+Ensure:
+You know current instance name (prodtest_vm)
+Target name (say tramo_prod)
+Take backup (recommended) --> onbar -b -L 0
+
+Step 1: Stop Informix Server
+----------------------------
+onmode -ky
+
+Verify it's down:
+ps -ef | grep oninit
+onstat -
+
+Step 2: Modify ONCONFIG file
+----------------------------
+cd $INFORMIXDIR/etc
+vi onconf.if_prodtest_vm
+
+Change:
+DBSERVERNAME tramo_prod
+
+Step 3: Modify sqlhosts file
+----------------------------
+vi $INFORMIXDIR/etc/sqlhosts
+
+ol_old   onsoctcp   hostname   service
+
+prodtest_vm  ontlitcp    adetrmdb1.dc-ratingen.de       informix-tli6 g=rep_dus
+tramo_prod   ontlitcp    adetrmdb1.dc-ratingen.de    	informix-tli6
+
+Step 4: Update /etc/services (if port/service changed) --> We can skip this step as we are not changing the ports
+------------------------------------------------------
+vi /etc/services
+
+Step 5: Update Environment Variable
+-----------------------------------
+export INFORMIXSERVER=tramo_prod
+
+Also update profile permanently:
+vi ~/.bash_profile
+# or
+vi ~/.profile
+
+Add/update:
+INFORMIXSERVER=tramo_prod
+export INFORMIXSERVER
+
+Step 6: Start Informix Server
+-----------------------------
+oninit -v
+
+Check status: onstat -
+
+Step 7: Validation
+------------------
+onstat -g dis
+
+Check: Server name displayed → tramo_prod
+Also test DB login:dbaccess
+onstat -c | grep DBSERVERNAME
+
+Quick Summary (Command Flow):
+=============================
+onmode -ky
+
+cd $INFORMIXDIR/etc
+vi onconfig.$INFORMIXSERVER     # change DBSERVERNAME
+
+vi sqlhosts                     # update instance name
+
+export INFORMIXSERVER=tramo_prod  # update env
+
+oninit -vy
+onstat -

@@ -1,0 +1,324 @@
+Informix instance : qlt4175_200tcp
+Port : 1539
+IP-Adress of Linux server : 46.108.91.142
+
+sqlhost:
+qlt4175_200tcp ontlitcp 46.108.91.142 1539
+
+
+dbaccess -> sysadmin
+SELECT task("onstat"," -d") as cmd from sysmaster:sysdual
+SELECT task("ontape"," -s -U erwerb3 misc3 port_aktiv3 port_reg3 reg3 rueckmeldung3 subvent3 tausch3 tochgreq3 tochgval3 wechsel3") as cmd from sysmaster:sysdual
+
+SELECT task("onstat"," -c") as cmd from sysmaster:sysdual
+
+!ksh
+To set env:
+export DBACCESS_COLUMNS=400
+
+Create DB in Berlin:
+==============================================================
+     IBM Informix Dynamic Server Version 14.10.FC11W1X6AEE -- On-Line -- Up 1 days 01:38:39 -- 527328 Kbytes
+     2026-01-22 12:20:10
+
+     Dbspaces
+     address          number   flags      fchunk   nchunks  pgsize   flags    owner    name
+     11020b028        1        0x4030001  1        1        2048     N  BA    informix rootdbs
+     11020cb88        2        0x4030001  2        1        2048     N  BA    informix phylog
+     110357850        3        0x4030001  3        1        2048     N  BA    informix loglog
+     110357aa8        4        0x2001     4        1        2048     N TBA    informix tmp
+     110357d00        5        0x20011    5        1        2048     N BBA    informix blobspace
+     110b17028        6        0x20001    6        1        6144     N  BA    informix datadbs1
+      6 active, 2047 maximum
+
+informix@adetrmdb2
+rataktp1_vm
+dbschema -d subvent -ss subvent.sql
+
+Create the DB in Berlin:
+
+Unload from rataktp1_vm subvent DB
+unload to auftragblob.unl select * from auftragblob;
+unload to auftragextract.unl select * from auftragextract;
+unload to status.unl select * from status;
+unload to auftragzeiten.unl select * from auftragzeiten;
+unload to csmblob.unl select * from csmblob;
+
+
+prodtest_vm  ontlitcp    adetrmdb1.dc-ratingen.de       informix-tli7
+
+/tmp/timex dbaccess subvent subvent_loader.sql
+
+time dbaccess subvent@prodtest_vm subvent_loader.sql
+
+load from auftragblob.unl insert into auftragblob;
+load from auftragextract.unl insert into auftragextract;
+load from status.unl insert into status;
+load from auftragzeiten.unl insert into auftragzeiten;
+load from csmblob.unl insert into csmblob;
+
+time dbaccess subvent@qlt4175_200tcp subvent_loader.sql
+
+SELECT task("onstat"," -p") as cmd from sysmaster:sysdual  --> In Berlin
+
+subvent@qlt4175_200tcp
+begin work;
+set isolation to dirty read
+
+load from status.unl insert into status where durchlaufid like '2511%';
+
+insert into subvent@qlt4175_200tcp:status select * from subvent@rataktp1_vm:status where durchlaufid like '2511%';
+
+Note:
+
+1. We need sqlhosts of 64 bit to 32 bit env
+2. All data was encrypted as it was stored in byte column
+3. Default lock mode in Informix is "page"
+4. Additional chunk to be added in berlin instance
+5. Latency should re-check again for berlin instance
+
+Migration:
+
+1. It needs downtime
+2. Transfer the data -> Lock mode of DB is same in both DBs
+3. Re-Org is needed
+4. Backup of DB and LL should be tested before brining the data to berlin
+create DB without logging
+Load the data with 
+5. Get Prod server of berlin
+6. Schema should remain same in both
+
+. ./switch_rataktp1_vm.sh == rataktp1 PROD INSTANCE --> Synchronous orders from credit market
+. ./switch_rataktp2_vm.sh == rataktp2 PROD INSTANCE --> Asynchronous orders from credit market
+. ./switch_rataktp4_vm.sh == rataktp4 PROD INSTANCE --> It is for Tramo reference data and it's sending data for epos responses
+. ./switch_ratcalp2_vm.sh == ratcalp2 PROD INSTANCE --> Debit market
+
+Will have only one instance in future --> Need to analyze
+----------------------------------------------------------
+Shared Memory -> 12 GB
+Size of datadbs (Sum of all 4 datadbs) -> 12GB
+datadbs1
+datadbs2
+datadbs3
+datadbs4
+
+PHYSFILE --> 1500000  --DONE
+PHYSBUFF --> 1024 	--DONE
+LOGFILES --> 250	--DONE
+LOGBUFF --> 1024	--DONE
+Logical log size 	--> 10000 
+tempdbs --> 500000 (Two tempdbs are required) --DONE
+
+BUFFERPOOL                size=2K,buffers=50000,lrus=4,lru_min_dirty=20,lru_max_dirty=30
+BUFFERPOOL                size=6K,buffers=650000,lrus=8,lru_min_dirty=20,lru_max_dirty=30
+
+ROOTSIZE 3000000
+NETTYPE ipcshm,1,80,CPU --> Fine
+NETTYPE tlitcp,3,100,NET --> Fine
+VPCLASS cpu,num=4,noage --> Fine
+
+USEOSTIME 1 --> OS time for milli seconds
+timestamp char(20) --> Need to define the column name as timestamp not char(precession of fraction 5) --> Fine
+
+SHMADD 32768 (65536)
+SHMTOTAL 16777216   (12582912) --DONE
+SHMVIRTSIZE 65536 (131072)
+
+Note:
+----
+1. Switch the production adetrmdb1 to adetrmdb2 to build up the new single instance on adetrmdb1.
+2. We have to check the chunks of the data dbspace regarding how much size is really used. (12 GB)
+
+onspaces -d blobspace -y
+onspaces -d sbspace -y --> Can't be dropped due to data replication(The sbspace contains smart large objects)
+onspaces -d datadbs2 -y
+
+We can use  raw devices in prodtest_vm
+
+Check raw device size:
+prtvtoc /dev/vx/rdsk/adetrtest/rinformix07
+
+Name of the new instance: tramo_prod
+===================================================================
+
+Data load in Migration:
+
+It needs both target and source having same logging mode
+1.dbexport
+2.dbimport 
+
+=======================================================================================
+New virtual Linux servers in Berlin:
+------------------------------------
+Here are the hostnames and IP addresses:
+ 
+TEST: VLTN092
+10.32.232.165	VLTN092	        VLAN 366: database-test
+10.32.254.165	VLTN092-mgmt	VLAN 347: mgmt-be
+10.32.248.165	VLTN092-bk1	VLAN 348: backup-be
+ 
+PROD: VLPN092
+10.32.228.185	VLPN092	        VLAN 365: database
+10.32.254.185	VLPN092-mgmt	VLAN 347: mgmt-be
+10.32.248.185	VLPN092-bk1	VLAN 348: backup-be
+
+==============================================================================
+ssh -o HostKeyAlgorithms=+ssh-dss informix@adetrmdb1.dc-ratingen.de
+
+unload to d2ascfg.unl select * from d2ascfg;
+unload to soccodes.unl select * from soccodes;
+unload to stempel.unl select * from stempel;
+unload to tariffoptioncodes.unl select * from tariffoptioncodes;
+
+Note: 
+
+1. Every table has statusinformation table
+
+unload to statusinformation.unl select * from statusinformation; 
+
+onspaces -ren datadbs1 -n datadbs
+ 
+:1,$s/datadbs1/datadbs/g
+
+load from soccodes.unl insert into soccodes;
+load from stempel.unl insert into stempel;
+load from tariffoptioncodes.unl insert into tariffoptioncodes;
+
+===============================================================================
+informix@adettmacc1
+
+qlt4175_200tcp  onsoctcp        delphi-staging-db1-new  1540 g=rep_ber
+qlt4175_203tcp  onsoctcp        delphi-staging-db1-new  1535
+qlt4175_204tcp  onsoctcp        delphi-staging-db1-new  1536
+qlt4175_205tcp  onsoctcp        delphi-staging-db1-new  1537
+qlt4175_206tcp  onsoctcp        delphi-staging-db1-new  1538
+qlt4175_207tcp  onsoctcp        delphi-staging-db1-new  1539
+
+
+qlt4175_202tcp  onsoctcp        delphi-staging-db1-new  16634
+
+
+create synonym auftragextract1 for aktiv3@qlt4175_200tcp:auftragextract;
+
+
+Note:
+We need to change the logging the databases in berlin
+
+dea652yw.eito-dublin.local
+dea579yr
+
+
+insert into queue_in values ("251020082145246602gS", "N", "S");
+
+Note: (Action points)
+=====
+1. We need the content of statusinformation in every database as preparation
+2. Adopt the d2ascfg and Unload the d2ascfg and change the tralinux to qlt in berlin
+3. Check the content of succodes and tarifcodes in benuzer database
+
+Note: (19/05/26)
+
+d2ascfg.unl --> Need to be loaded 
+
+==================================Prepare for internal User Management============================================= 
+
+file: /etc/Informix/allowed.surrogates
+
+informix@adetrmdb1:/etc/informix> cat allowed.surrogates
+USERS:203
+GROUPS:101
+
+informix@adetrmdb1:/opt/informix/IDS/14.10.12/etc> cat users.adetrmdb2
+informix
+tramo
+c1opera
+c1operb
+c3opera
+c3operb
+informix@adetrmdb1:/opt/informix/IDS/14.10.12/etc> cat servers.adetrmdb2
+tramo-pr1        +
+adevas6s        +
+adevas5s        +
+adevas4s        +
+adetrmas        +
+adetrmas.mdv.mmo.de     +
+adetrmbs        +
+albany6.mdv.mmo.de              +
+albany7.mdv.mmo.de              +
+adetrmdb1       +
+adetrmdb2       +
+
+informix@adetrmdb1:/opt/informix/IDS/14.10.12/etc> cat onconf.if_rataktp1 | grep REMOTE*
+REMOTE_SERVER_CFG servers.adetrmdb2
+REMOTE_USERS_CFG   users.adetrmdb2 
+USERMAPPING               BASIC
+
+CREATE USER "c1opera" WITH PASSWORD "STart99" PROPERTIES UID 203 group(101)
+CREATE USER "c1operb" WITH PASSWORD "STart99" PROPERTIES UID 203 group(101)
+CREATE USER "c3opera" WITH PASSWORD "STart99" PROPERTIES UID 203 group(101)
+CREATE USER "c3operb" WITH PASSWORD "STart99" PROPERTIES UID 203 group(101)
+CREATE USER "informix" WITH PASSWORD "STart99" PROPERTIES UID 203 group(101)
+CREATE USER "tramo" WITH PASSWORD "STart99" PROPERTIES UID 203 group(101)
+
+informix@adetrmdb1:/opt/informix> cat .rhosts  --> Not needed
+adetrmas
+adetrmbs
+adevas1s
+adevas2s
+adevas3s
+adevas3s.mdv.mmo.de
+adevas2s.mdv.mmo.de
+adevas1s.mdv.mmo.de
+adetrmas.mdv.mmo.de
+tramo-vm1
+tramo-pr1.mdv.mmo.de
+139.7.200.208
+adetrmbs.mdv.mmo.de
+10.133.20.195
+adevas6s.dc-ratingen.de
+adevas6s
+albany6
+albany7
+albany6.mdv.mmo.de
+albany7.mdv.mmo.de
+46.108.91.142
+=========================================================================================================
+
+insert into port_reg3:statusinformation select * from statusinformation;
+insert into wechsel3:statusinformation select * from statusinformation;
+insert into debitchg3:statusinformation select * from statusinformation;
+insert into reg3:statusinformation select * from statusinformation;
+insert into erwerb3:statusinformation select * from statusinformation;
+insert into tausch3:statusinformation select * from statusinformation;
+
+set isolation to dirty read; ->(Reads uncommitted data)tells Informix “don’t worry about locks or consistency, just give me whatever is in memory right now.”
+
+set EXPLAIN ON
+SET EXPLAIN ON AVOID_EXECUTION;
+
+Current Status of Informix(Solaris) to Informix(Linux):
+-------------------------------------------------------
+1. We have migrated all test(adettmacc1) environment from Ratingen(Solaris) to Berlin(Linux) on 46.108.91.142 (qlt4175_200tcp). At this moment all network connections are working fine and system is stable in Berlin(Linux) environment as expected.
+2. Once everything is working fine till end of this week then will made the decision.
+3. Users are created in berlin production environment.
+4. Will consolidate all 4 instances into 1 instance in berlin
+5. Configure CDR replication from Ratingen to berlin
+6. In stabilization phase (If we don't face any network related issues then only will stay in berlin).
+7. Analysis of configuration from 4 to 1 instance is in progress.
+
+
+1. Case: TS021548215 (Un-resolved internal high load in Informix instances) --> Completed
+
+We have tried the recommendation from IBM and that were not worked as expected. So that as part of our on-going project we have switched the test Informix instances from Solaris to Linux. Load is normal and asked IBM to close the ticket for now until the production also got migrated.
+
+2. Informix (Solaris) -> Informix (Linux) --> Completed
+
+We have migrated all test(adettmacc1) environment from Ratingen(Solaris) to Berlin(Linux) on 46.108.91.142 (qlt4175_200tcp). At this moment all network connections are working fine and system is stable in Berlin(Linux) environment as expected.
+
+3. RFC-1627631 (13.05.2026) --> Completed
+
+ePOS CW20 weekly reference data on tramo (adettmacc1) db set-3 (OPT) and db set-4 (INT) of (!!!) INFORMIXSERVER=qlt4175_200tcp 
+
+4. RFC-1652759 21 May 2026, 04:00 AM IST --> In progress
+
+Switchover of Informix Instances from adetrmdb1 to adetrmdb2 

@@ -1,0 +1,260 @@
+Activate the un-buffered logging
+
+select tabname,tabid from systables where tabid > 99 order by tabid;
+
+for i in aktiv port_aktiv tausch wechsel
+do
+  echo "select tabname from systables where tabid > 99 order by tabid" 2>/dev/null | dbaccess $i | awk '{ if ($1=="tabname") print "load from "$2".unl insert into " $2";" }' > $i.sql
+done
+
+time dbaccess debitchg@ratcalp2_vm debitchg.sql
+=======================================================
+time dbaccess arsoc@tramo_prod load_arsoc.sql
+
+Database selected.
+
+real    1m38.088s
+user    0m18.131s
+sys     0m7.125s
+
+------------------------------------------------------------
+time dbaccess subvent@tramo_prod load_subvent.sql
+
+Database selected.
+
+real    11m42.894s
+user    3m16.192s
+sys     0m56.408s
+
+Unload of subvent: 5 mins & 30 sec
+Unload of arsoc: 26 sec
+
+time dbaccess erwerb@rataktp1_vm erwerb.sql
+real    0m28.140s
+user    0m11.339s
+sys     0m4.284s
+
+time dbaccess erwerb@tramo_prod load_erwerb.sql
+real    1m47.502s
+user    0m20.565s
+sys     0m6.926s
+
+ time dbaccess tochgval@rataktp1_vm tochgval.sql
+real    0m23.400s
+user    0m9.132s
+sys     0m2.696s
+
+time dbaccess tochgval@tramo_prod load_tochgval.sql
+real    0m45.484s
+user    0m18.171s
+sys     0m3.263s
+
+
+==========================================
+1. Unload the data from production on adetrmdb2. -> 30 Mins
+2. Load the data to tramo_prod to adetrmdb1 from adetrmdb2. -> 90 Mins
+3. Update the statistics for the 5 main tables:  -> 30 Mins
+	auftragextract	auftragblob	auftragzeiten	csmblob	status
+4. Activate the un-buffered logging. -> 15 mins
+5. Full backup of tramo_prod on adetrmdb1. -> 15 mins
+6. Switch the applications
+
+
+============================================
+informix@adetrmdb2:/opt/informix/berlin/UNLOAD/rueckmeldung> time dbaccess rueckmeldung@rataktp4_vm rueckmeldung.sql
+
+Database selected.
+
+
+2 row(s) unloaded.
+
+
+457361 row(s) unloaded.
+
+
+0 row(s) unloaded.
+
+
+457450 row(s) unloaded.
+
+
+88 row(s) unloaded.
+
+
+Database closed.
+
+
+real    1m31.432s
+user    0m28.148s
+sys     0m7.868s
+
+informix@adetrmdb2:/opt/informix/berlin/UNLOAD/rueckmeldung> time dbaccess rueckmeldung@tramo_prod load_rueckmeldung.sql
+
+Database selected.
+
+
+2 row(s) loaded.
+
+
+457361 row(s) loaded.
+
+
+0 row(s) loaded.
+
+
+457450 row(s) loaded.
+
+
+88 row(s) loaded.
+
+
+Database closed.
+
+
+real    2m54.582s
+user    0m52.908s
+sys     0m12.716s
+
+informix@adetrmdb2:/opt/informix/berlin/UNLOAD/port_reg> time dbaccess port_reg@ratcalp2_vm port_reg.sql
+
+Database selected.
+
+
+1244 row(s) unloaded.
+
+
+1480 row(s) unloaded.
+
+
+0 row(s) unloaded.
+
+
+0 row(s) unloaded.
+
+
+88 row(s) unloaded.
+
+
+1244 row(s) unloaded.
+
+
+0 row(s) unloaded.
+
+
+0 row(s) unloaded.
+
+
+0 row(s) unloaded.
+
+
+0 row(s) unloaded.
+
+
+0 row(s) unloaded.
+
+
+91 row(s) unloaded.
+
+
+0 row(s) unloaded.
+
+
+0 row(s) unloaded.
+
+
+8592 row(s) unloaded.
+
+
+1244 row(s) unloaded.
+
+
+0 row(s) unloaded.
+
+
+0 row(s) unloaded.
+
+
+0 row(s) unloaded.
+
+
+0 row(s) unloaded.
+
+
+Database closed.
+
+
+real    0m0.635s
+user    0m0.209s
+sys     0m0.066s
+informix@adetrmdb2:/opt/informix/berlin/UNLOAD/port_reg> time dbaccess port_reg@tramo_prod load_port_reg.sql
+
+Database selected.
+
+
+1244 row(s) loaded.
+
+
+1480 row(s) loaded.
+
+
+0 row(s) loaded.
+
+
+0 row(s) loaded.
+
+
+88 row(s) loaded.
+
+
+1244 row(s) loaded.
+
+
+0 row(s) loaded.
+
+
+0 row(s) loaded.
+
+
+0 row(s) loaded.
+
+
+0 row(s) loaded.
+
+
+0 row(s) loaded.
+
+
+91 row(s) loaded.
+
+
+0 row(s) loaded.
+
+
+0 row(s) loaded.
+
+
+8592 row(s) loaded.
+
+
+1244 row(s) loaded.
+
+
+0 row(s) loaded.
+
+
+0 row(s) loaded.
+
+
+0 row(s) loaded.
+
+
+0 row(s) loaded.
+
+
+Database closed.
+
+
+real    0m1.474s
+user    0m0.390s
+sys     0m0.103s
+

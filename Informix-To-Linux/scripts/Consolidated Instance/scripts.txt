@@ -1,0 +1,31 @@
+##################This script will Informix DB status report###################
+
+0 8,12,17 * * * /opt/informix/ifxmonitor/scripts/managment_report.sh 
+
+##################This script will be used for L0 Backup########################
+
+0 4 * * * /opt/informix/IDS/14.10.12/scripts/level0_rataktp1.sh >/opt/informix/IDS/14.10.12/scripts/level0_aktp1_cron.log 2>&1
+
+##################Below scripts will do stats update#######################
+
+0 5 * * 1-6 /opt/informix/finchen/finchen_rataktp1_low.sh >/opt/informix/finchen/finchen_rataktp1_low.log 2>&1
+0 5 * * 0 /opt/informix/finchen/finchen_rataktp1_high.sh >/opt/informix/finchen/finchen_rataktp1_high.log 2>&1
+
+##################This script will provide the sizes of the databases inside the instance###############
+
+0 8 * * * /opt/informix/IDS/14.10.12/scripts/CHECK_LOGS/DB_SIZE/db-sizes-prod_1.sh > /opt/informix/IDS/14.10.12/scripts/CHECK_LOGS/DB_SIZE/db-sizes-prod.log 2>&1
+##################Below script will check the errors in message logs######################
+
+0 8,11,14,17 * * * /opt/informix/IDS/14.10.12/scripts/CHECK_LOGS/Informix_Error_Status_Report.sh > /opt/informix/IDS/14.10.12/scripts/CHECK_LOGS/Informix_Error_Status_Report.log 2>&1
+
+############The script will Send the Informix table data growth dump weekly###############
+
+12 9 * * 1 /opt/informix/ifxmonitor/scripts/table_data_growth_report.sh >> /opt/informix/ifxmonitor/files/table_data_growth_report.log 2>&1
+
+###########The script will Send the Informix Monitoring Report on mail###############
+
+0 8,11,15 * * * /opt/informix/ifxmonitor/scripts/SendMailIfxmonitor.sh 2>&1 >/dev/null 
+
+###########The script will generate and scp files required for informix webportal#############
+
+05 0 * * * /opt/informix/ifxmonitor/scripts/ifxmonitor.sh >> /opt/informix/ifxmonitor/files/ifxmonitor.log 2>&1  
